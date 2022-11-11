@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/go-pg/pg"
+	_ "github.com/lib/pq"
 	"github.com/namrahov/hesen-go/config"
 	migrate "github.com/rubenv/sql-migrate"
 	log "github.com/sirupsen/logrus"
