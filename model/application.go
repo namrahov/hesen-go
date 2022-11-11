@@ -21,6 +21,7 @@ type Application struct {
 	AssigneeId     int64        `sql:"assignee_id" json:"assigneeId"`
 	Priority       Priority     `sql:"priority" json:"priority"`
 	MailSent       bool         `sql:"mail_sent" json:"mailSent"`
+	Comments       []Comment    `json:"comments"`
 	AssigneeName   string       `sql:"assignee_name" json:"assigneeName"`
 	BeginDate      string       `sql:"begin_date" json:"beginDate"`
 	EndDate        string       `sql:"end_date" json:"endDate"`
@@ -49,3 +50,8 @@ const (
 	Standard Priority = "STANDARD"
 	High              = "HIGH"
 )
+
+type ChangeStatusRequest struct {
+	Status      Status `json:"status"`
+	Description string `json:"description"`
+}

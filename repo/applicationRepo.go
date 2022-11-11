@@ -7,6 +7,7 @@ import (
 
 type IApplicationRepo interface {
 	GetApplicationById(id int64) (*model.Application, error)
+	SaveApplication(application *model.Application) (*model.Application, error)
 }
 
 type ApplicationRepo struct {
@@ -23,4 +24,14 @@ func (r ApplicationRepo) GetApplicationById(id int64) (*model.Application, error
 	}
 
 	return &application, nil
+}
+
+func (r ApplicationRepo) SaveApplication(application *model.Application) (*model.Application, error) {
+	_, err := Db.Model(application).
+		OnConflict("(id) DO UPDATE").
+		Insert()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return application, nil
 }
