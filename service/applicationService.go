@@ -14,12 +14,26 @@ import (
 type IService interface {
 	GetApplication(ctx context.Context, id int64) (*model.Application, error)
 	ChangeStatus(ctx context.Context, id int64, request model.ChangeStatusRequest) *model.ErrorResponse
+	SaveApplication(ctx context.Context, application *model.Application) (*model.Application, error)
 }
 
 type Service struct {
 	ApplicationRepo repo.IApplicationRepo
 	ValidationUtil  util.IValidationUtil
 	CommentRepo     repo.ICommentRepo
+}
+
+func (s *Service) SaveApplication(ctx context.Context, application *model.Application) (*model.Application, error) {
+	logger := ctx.Value(model.ContextLogger).(*log.Entry)
+	logger.Info("ActionLog.GetApplication.start")
+
+	application, err := s.ApplicationRepo.SaveApplication(application)
+	if err != nil {
+		logger.Errorf("ActionLog.SaveApplication.error: cannot save application for application id %v", err)
+		return nil, errors.New(fmt.Sprintf("%s.can't-save-application", model.Exception))
+	}
+
+	return application, nil
 }
 
 func (s *Service) GetApplication(ctx context.Context, id int64) (*model.Application, error) {
@@ -72,7 +86,7 @@ func (s *Service) ChangeStatus(ctx context.Context, id int64, request model.Chan
 	}
 
 	application.Status = request.Status
-	_, err = s.ApplicationRepo.SaveApplication(application)
+	_, err = s.ApplicationRepo.UpdateApplication(application)
 	if err != nil {
 		return &model.ErrorResponse{Code: err.Error(), Status: http.StatusInternalServerError}
 	}

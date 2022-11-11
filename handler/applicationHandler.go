@@ -32,9 +32,28 @@ func ApplicationHandler(router *mux.Router) *mux.Router {
 	}
 
 	router.HandleFunc(config.RootPath+"/applications/{id}", h.getApplication).Methods("GET")
-	router.HandleFunc(config.RootPath+"/{id}/change-status", h.changeStatus).Methods("PUT")
+	router.HandleFunc(config.RootPath+"/applications/{id}/change-status", h.changeStatus).Methods("PUT")
+	router.HandleFunc(config.RootPath+"/applications/", h.saveApplication).Methods("POST")
 
 	return router
+}
+
+func (h *applicationHandler) saveApplication(w http.ResponseWriter, r *http.Request) {
+	var application *model.Application
+	err := util.DecodeBody(w, r, &application)
+	if err != nil {
+		return
+	}
+
+	result, err := h.Service.SaveApplication(r.Context(), application)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(result)
 }
 
 func (h *applicationHandler) getApplication(w http.ResponseWriter, r *http.Request) {
