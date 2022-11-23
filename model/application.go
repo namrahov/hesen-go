@@ -55,3 +55,8 @@ type ChangeStatusRequest struct {
 	Status      Status `json:"status"`
 	Description string `json:"description"`
 }
+
+type FilterInfo struct {
+	Courts []string `json:"courts"`
+	Judges []string `json:"judges"`
+}

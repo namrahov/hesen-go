@@ -9,12 +9,15 @@ import (
 	"github.com/namrahov/hesen-go/util"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"sync"
+	"time"
 )
 
 type IService interface {
 	GetApplication(ctx context.Context, id int64) (*model.Application, error)
 	ChangeStatus(ctx context.Context, id int64, request model.ChangeStatusRequest) *model.ErrorResponse
 	SaveApplication(ctx context.Context, application *model.Application) (*model.Application, error)
+	GetFilterInfo(ctx context.Context) (*model.FilterInfo, error)
 }
 
 type Service struct {
@@ -93,4 +96,62 @@ func (s *Service) ChangeStatus(ctx context.Context, id int64, request model.Chan
 
 	logger.Info("ActionLog.ChangeStatus.end")
 	return nil
+}
+
+func (s *Service) GetFilterInfo(ctx context.Context) (*model.FilterInfo, error) {
+	stratTime := time.Now()
+
+	logger := ctx.Value(model.ContextLogger).(*log.Entry)
+	logger.Info("ActionLog.GetFilterInfo.start")
+
+	var applicationWithDistinctCourtName *[]model.Application
+	var applicationWithDistinctJudgeName *[]model.Application
+	var err error
+
+	var courts []string
+	var judges []string
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		applicationWithDistinctCourtName, err = s.ApplicationRepo.GetDistinctCourtName(&wg)
+		for _, application := range *applicationWithDistinctCourtName {
+			if application.CourtName != "" {
+				courts = append(courts, application.CourtName)
+			}
+		}
+	}()
+
+	if err != nil {
+		logger.Errorf("ActionLog.GetFilterInfo.error: cannot get applicationWithDistinctCourtName info %v", err)
+		return nil, errors.New(fmt.Sprintf("%s.can't-get-application-with-distinct-court-name", model.Exception))
+	}
+
+	go func() {
+		applicationWithDistinctJudgeName, err = s.ApplicationRepo.GetDistinctJudgeName(&wg)
+		for _, application := range *applicationWithDistinctJudgeName {
+			if application.JudgeName != "" {
+				judges = append(judges, application.JudgeName)
+			}
+		}
+	}()
+
+	if err != nil {
+		logger.Errorf("ActionLog.GetFilterInfo.error: cannot get applicationWithDistinctJudgeName info %v", err)
+		return nil, errors.New(fmt.Sprintf("%s.can't-get-application-with-distinct-judge-name", model.Exception))
+	}
+
+	wg.Wait()
+
+	filterInfo := model.FilterInfo{
+		Courts: courts,
+		Judges: judges,
+	}
+
+	logger.Info("ActionLog.GetFilterInfo.success")
+
+	fmt.Println(time.Now().Sub(stratTime))
+
+	return &filterInfo, nil
 }

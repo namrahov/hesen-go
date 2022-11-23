@@ -34,6 +34,7 @@ func ApplicationHandler(router *mux.Router) *mux.Router {
 	router.HandleFunc(config.RootPath+"/applications/{id}", h.getApplication).Methods("GET")
 	router.HandleFunc(config.RootPath+"/applications/{id}/change-status", h.changeStatus).Methods("PUT")
 	router.HandleFunc(config.RootPath+"/applications/", h.saveApplication).Methods("POST")
+	router.HandleFunc(config.RootPath+"/applications/get/filter-info", h.getFilterInfo).Methods("GET")
 
 	return router
 }
@@ -99,4 +100,17 @@ func (h *applicationHandler) changeStatus(w http.ResponseWriter, r *http.Request
 
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *applicationHandler) getFilterInfo(w http.ResponseWriter, r *http.Request) {
+
+	result, err := h.Service.GetFilterInfo(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(result)
 }
