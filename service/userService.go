@@ -7,16 +7,35 @@ import (
 	"github.com/namrahov/hesen-go/model"
 	"github.com/namrahov/hesen-go/repo"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
+	"net/http"
 )
 
 type IUserService interface {
 	GetUserIfExist(ctx context.Context, sessionId string) (*model.User, error)
-	SaveUser(ctx context.Context, u *model.User) (*model.User, error)
+	SaveUser(ctx context.Context, u *model.UserRegister) (*model.User, error)
 	SaveSession(ctx context.Context, sessionId string, userId string) error
+	AlreadyLoggedIn(r *http.Request) bool
 }
 
 type UserService struct {
 	UserRepo repo.IUserRepo
+}
+
+func (up *UserService) AlreadyLoggedIn(r *http.Request) bool {
+	cookie, err := r.Cookie("session-id")
+
+	if err != nil {
+		return false
+	}
+
+	userAddress, err := up.GetUserIfExist(r.Context(), cookie.Value)
+	if err == nil && userAddress != nil {
+		return true
+	} else {
+		return false
+	}
+
 }
 
 func (up *UserService) GetUserIfExist(ctx context.Context, sessionId string) (*model.User, error) {
@@ -35,12 +54,11 @@ func (up *UserService) GetUserIfExist(ctx context.Context, sessionId string) (*m
 		return nil, nil
 	}
 
-	fmt.Println("sessions[0]=", sessions[0])
-
-	u, err := up.UserRepo.GetUserById(sessions[0].UserId)
+	u, err := up.UserRepo.GetUserById(sessions[len(sessions)-1].UserId)
 
 	if err1 != nil {
-		logger.Errorf("ActionLog.GetUserIfExist.error: cannot get user for user id %v, %v", sessions[0].UserId, err)
+		logger.Errorf("ActionLog.GetUserIfExist.error: cannot get user for user id %v, %v",
+			sessions[len(sessions)-1].UserId, err)
 		return nil, errors.New(fmt.Sprintf("%s.can't-get-user", model.Exception))
 	}
 
@@ -49,11 +67,24 @@ func (up *UserService) GetUserIfExist(ctx context.Context, sessionId string) (*m
 	return u, nil
 }
 
-func (up *UserService) SaveUser(ctx context.Context, u *model.User) (*model.User, error) {
+func (up *UserService) SaveUser(ctx context.Context, u *model.UserRegister) (*model.User, error) {
 	logger := ctx.Value(model.ContextLogger).(*log.Entry)
 	logger.Info("ActionLog.SaveUser.start")
 
-	user, err := up.UserRepo.SaveUser(u)
+	ps, err1 := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.MinCost)
+	if err1 != nil {
+		logger.Errorf("ActionLog.SaveUser.error: cannot encrypt password for user id")
+		return nil, errors.New(fmt.Sprintf("%s.can't-encrypt-password", model.Exception))
+	}
+
+	user := model.User{
+		UserName:  u.UserName,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		Password:  ps,
+	}
+
+	us, err := up.UserRepo.SaveUser(&user)
 	if err != nil {
 		logger.Errorf("ActionLog.GetUserIfExist.error: cannot save user for user id %v", err)
 		return nil, errors.New(fmt.Sprintf("%s.can't-save-user", model.Exception))
@@ -61,7 +92,7 @@ func (up *UserService) SaveUser(ctx context.Context, u *model.User) (*model.User
 
 	logger.Info("ActionLog.SaveUser.success")
 
-	return user, nil
+	return us, nil
 }
 
 func (up *UserService) SaveSession(ctx context.Context, sessionId string, userId string) error {

@@ -15,5 +15,6 @@ require (
 	github.com/rubenv/sql-migrate v1.2.0 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
+	golang.org/x/crypto v0.3.0 // indirect
 	mellium.im/sasl v0.3.0 // indirect
 )

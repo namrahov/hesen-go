@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	mid "github.com/go-chi/chi/middleware"
 	"github.com/gorilla/mux"
 	"github.com/namrahov/hesen-go/config"
@@ -37,8 +36,8 @@ func ApplicationHandler(router *mux.Router) *mux.Router {
 		},
 	}
 
-	router.HandleFunc("/", h.setCookies).Methods("GET")
-	router.HandleFunc("/createUser", h.createUser).Methods("POST")
+	router.HandleFunc("/sign-up", h.signUp).Methods("POST")
+	router.HandleFunc("/bar", h.bar).Methods("GET")
 	router.HandleFunc(config.RootPath+"/applications/{id}", h.getApplication).Methods("GET")
 	router.HandleFunc(config.RootPath+"/applications/{id}/change-status", h.changeStatus).Methods("PUT")
 	router.HandleFunc(config.RootPath+"/applications/", h.saveApplication).Methods("POST")
@@ -47,19 +46,13 @@ func ApplicationHandler(router *mux.Router) *mux.Router {
 	return router
 }
 
-var dbUser = map[string]model.User{}
-var dbSession = map[string]string{}
-
-func (h *applicationHandler) setCookies(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{
-		Name:  "session-id",
-		Value: "some value",
-	})
-
-	fmt.Println(w)
+func (h *applicationHandler) bar(w http.ResponseWriter, r *http.Request) {
+	if !h.UserService.AlreadyLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
 }
-
-func (h *applicationHandler) createUser(w http.ResponseWriter, r *http.Request) {
+func (h *applicationHandler) signUp(w http.ResponseWriter, r *http.Request) {
 	cookie, err3 := r.Cookie("session-id")
 
 	if err3 != nil {
@@ -72,14 +65,12 @@ func (h *applicationHandler) createUser(w http.ResponseWriter, r *http.Request) 
 		http.SetCookie(w, cookie)
 	}
 
-	fmt.Println(cookie.Value, " ", cookie.Name)
-
 	userAddress, err := h.UserService.GetUserIfExist(r.Context(), cookie.Value)
 
 	var user model.User
 	if err == nil && userAddress == nil {
 		//process form submission
-		var u *model.User
+		var u *model.UserRegister
 		err := util.DecodeBody(w, r, &u)
 		if err != nil {
 			return
@@ -91,13 +82,15 @@ func (h *applicationHandler) createUser(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		err = h.UserService.SaveSession(r.Context(), cookie.Value, u.Id)
+		err = h.UserService.SaveSession(r.Context(), cookie.Value, user.Id)
 		if err != nil {
 			return
 		}
 
 	} else if err == nil && userAddress != nil {
 		user = *userAddress
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
 	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
