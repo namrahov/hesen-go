@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	mid "github.com/go-chi/chi/middleware"
 	"github.com/gorilla/mux"
 	"github.com/namrahov/hesen-go/config"
@@ -10,12 +11,14 @@ import (
 	"github.com/namrahov/hesen-go/repo"
 	"github.com/namrahov/hesen-go/service"
 	"github.com/namrahov/hesen-go/util"
+	"github.com/satori/go.uuid"
 	"net/http"
 	"strconv"
 )
 
 type applicationHandler struct {
-	Service service.IService
+	Service     service.IService
+	UserService service.IUserService
 }
 
 func ApplicationHandler(router *mux.Router) *mux.Router {
@@ -29,14 +32,81 @@ func ApplicationHandler(router *mux.Router) *mux.Router {
 			ValidationUtil:  &util.ValidationUtil{},
 			CommentRepo:     &repo.CommentRepo{},
 		},
+		UserService: &service.UserService{
+			UserRepo: &repo.UserRepo{},
+		},
 	}
 
+	router.HandleFunc("/", h.setCookies).Methods("GET")
+	router.HandleFunc("/createUser", h.createUser).Methods("POST")
 	router.HandleFunc(config.RootPath+"/applications/{id}", h.getApplication).Methods("GET")
 	router.HandleFunc(config.RootPath+"/applications/{id}/change-status", h.changeStatus).Methods("PUT")
 	router.HandleFunc(config.RootPath+"/applications/", h.saveApplication).Methods("POST")
 	router.HandleFunc(config.RootPath+"/applications/get/filter-info", h.getFilterInfo).Methods("GET")
 
 	return router
+}
+
+var dbUser = map[string]model.User{}
+var dbSession = map[string]string{}
+
+func (h *applicationHandler) setCookies(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:  "session-id",
+		Value: "some value",
+	})
+
+	fmt.Println(w)
+}
+
+func (h *applicationHandler) createUser(w http.ResponseWriter, r *http.Request) {
+	cookie, err3 := r.Cookie("session-id")
+
+	if err3 != nil {
+		id := uuid.NewV4()
+		cookie = &http.Cookie{
+			Name:     "session-id",
+			Value:    id.String(),
+			HttpOnly: true,
+		}
+		http.SetCookie(w, cookie)
+	}
+
+	fmt.Println(cookie.Value, " ", cookie.Name)
+
+	userAddress, err := h.UserService.GetUserIfExist(r.Context(), cookie.Value)
+
+	var user model.User
+	if err == nil && userAddress == nil {
+		//process form submission
+		var u *model.User
+		err := util.DecodeBody(w, r, &u)
+		if err != nil {
+			return
+		}
+
+		userAddress, err := h.UserService.SaveUser(r.Context(), u)
+		user = *userAddress
+		if err != nil {
+			return
+		}
+
+		err = h.UserService.SaveSession(r.Context(), cookie.Value, u.Id)
+		if err != nil {
+			return
+		}
+
+	} else if err == nil && userAddress != nil {
+		user = *userAddress
+	} else {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&user)
+
 }
 
 func (h *applicationHandler) saveApplication(w http.ResponseWriter, r *http.Request) {
