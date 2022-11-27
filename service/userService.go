@@ -16,16 +16,39 @@ type IUserService interface {
 	SaveUser(ctx context.Context, u *model.UserRegister) (*model.User, error)
 	SaveSession(ctx context.Context, sessionId string, userId string) error
 	AlreadyLoggedIn(r *http.Request) bool
+	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
 }
 
 type UserService struct {
 	UserRepo repo.IUserRepo
 }
 
+func (up *UserService) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
+	logger := ctx.Value(model.ContextLogger).(*log.Entry)
+	logger.Info("ActionLog.GetUserByUsername.start")
+
+	u, err := up.UserRepo.GetUserByUsername(username)
+	if u == nil {
+		return nil, nil
+	}
+
+	fmt.Println("uuuuuuuu", u)
+
+	if err != nil {
+		logger.Errorf("ActionLog.GetUserByUsername.error: cannot get user by username %v", username)
+		return nil, errors.New(fmt.Sprintf("%s.can't-get-user-by-username", model.Exception))
+	}
+
+	logger.Info("ActionLog.GetUserByUsername.success")
+
+	return u, nil
+}
+
 func (up *UserService) AlreadyLoggedIn(r *http.Request) bool {
 	cookie, err := r.Cookie("session-id")
 
 	if err != nil {
+		fmt.Println("aaaaaaaaaaaaaaaaaaaaaaaa")
 		return false
 	}
 
@@ -35,7 +58,6 @@ func (up *UserService) AlreadyLoggedIn(r *http.Request) bool {
 	} else {
 		return false
 	}
-
 }
 
 func (up *UserService) GetUserIfExist(ctx context.Context, sessionId string) (*model.User, error) {
@@ -56,7 +78,7 @@ func (up *UserService) GetUserIfExist(ctx context.Context, sessionId string) (*m
 
 	u, err := up.UserRepo.GetUserById(sessions[len(sessions)-1].UserId)
 
-	if err1 != nil {
+	if err != nil {
 		logger.Errorf("ActionLog.GetUserIfExist.error: cannot get user for user id %v, %v",
 			sessions[len(sessions)-1].UserId, err)
 		return nil, errors.New(fmt.Sprintf("%s.can't-get-user", model.Exception))

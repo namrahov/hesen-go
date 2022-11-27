@@ -9,6 +9,7 @@ type IUserRepo interface {
 	GetSessionBySessionId(sessionId string) (*[]model.Session, error)
 	SaveUser(u *model.User) (*model.User, error)
 	SaveSession(u *model.Session) error
+	GetUserByUsername(username string) (*model.User, error)
 }
 
 type UserRepo struct {
@@ -19,6 +20,20 @@ func (r UserRepo) GetUserById(id string) (*model.User, error) {
 	err := Db.Model(&user).
 		Where("id = ?", id).
 		Select()
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r UserRepo) GetUserByUsername(username string) (*model.User, error) {
+	var user model.User
+	err := Db.Model(&user).
+		Where("user_name = ?", username).
+		Limit(1).
+		Select()
+
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/namrahov/hesen-go/service"
 	"github.com/namrahov/hesen-go/util"
 	"github.com/satori/go.uuid"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
 )
@@ -38,6 +39,7 @@ func ApplicationHandler(router *mux.Router) *mux.Router {
 
 	router.HandleFunc("/sign-up", h.signUp).Methods("POST")
 	router.HandleFunc("/bar", h.bar).Methods("GET")
+	router.HandleFunc("/logged-in", h.loggedIn).Methods("POST")
 	router.HandleFunc(config.RootPath+"/applications/{id}", h.getApplication).Methods("GET")
 	router.HandleFunc(config.RootPath+"/applications/{id}/change-status", h.changeStatus).Methods("PUT")
 	router.HandleFunc(config.RootPath+"/applications/", h.saveApplication).Methods("POST")
@@ -46,12 +48,63 @@ func ApplicationHandler(router *mux.Router) *mux.Router {
 	return router
 }
 
+func (h *applicationHandler) loggedIn(w http.ResponseWriter, r *http.Request) {
+	if h.UserService.AlreadyLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	var u *model.UserRegister
+	err := util.DecodeBody(w, r, &u)
+	if err != nil {
+		return
+	}
+
+	user, err2 := h.UserService.GetUserByUsername(r.Context(), u.UserName)
+
+	if user == nil {
+		http.Error(w, "Username and/or password doesn't match", http.StatusForbidden)
+		return
+	}
+
+	if err2 != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err3 := bcrypt.CompareHashAndPassword(user.Password, []byte(u.Password))
+
+	if err3 != nil {
+		http.Error(w, "Username and/or password doesn't match", http.StatusForbidden)
+		return
+	}
+
+	id := uuid.NewV4()
+	cookie := &http.Cookie{
+		Name:  "session-id",
+		Value: id.String(),
+	}
+	http.SetCookie(w, cookie)
+
+	err = h.UserService.SaveSession(r.Context(), cookie.Value, user.Id)
+	if err != nil {
+		return
+	}
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&user)
+}
+
 func (h *applicationHandler) bar(w http.ResponseWriter, r *http.Request) {
 	if !h.UserService.AlreadyLoggedIn(r) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 }
+
 func (h *applicationHandler) signUp(w http.ResponseWriter, r *http.Request) {
 	cookie, err3 := r.Cookie("session-id")
 
