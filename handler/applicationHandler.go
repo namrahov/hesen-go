@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	mid "github.com/go-chi/chi/middleware"
 	"github.com/gorilla/mux"
 	"github.com/namrahov/hesen-go/config"
@@ -56,7 +55,6 @@ func (h *applicationHandler) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("heseeeeeee")
 	c, _ := r.Cookie("session-id")
 
 	err := h.UserService.DeleteSessionBySessionId(r.Context(), c.Value)
@@ -135,6 +133,22 @@ func (h *applicationHandler) bar(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
+
+	cookie, _ := r.Cookie("session-id")
+
+	userAddress, err := h.UserService.GetUserIfExist(r.Context(), cookie.Value)
+	var user = *userAddress
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if userAddress != nil && user.Role != "Admin" {
+		http.Error(w, "Tou don't have a permission to enter this", http.StatusUnauthorized)
+		return
+	}
+
 }
 
 func (h *applicationHandler) signUp(w http.ResponseWriter, r *http.Request) {
@@ -188,8 +202,22 @@ func (h *applicationHandler) signUp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *applicationHandler) saveApplication(w http.ResponseWriter, r *http.Request) {
+	cookie, _ := r.Cookie("session-id")
+	userAddress, err := h.UserService.GetUserIfExist(r.Context(), cookie.Value)
+	var user = *userAddress
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if userAddress != nil && user.Role != "USER" {
+		http.Error(w, "You don't have a permission to enter this", http.StatusUnauthorized)
+		return
+	}
+
 	var application *model.Application
-	err := util.DecodeBody(w, r, &application)
+	err = util.DecodeBody(w, r, &application)
 	if err != nil {
 		return
 	}

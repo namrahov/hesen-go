@@ -8,6 +8,7 @@ type User struct {
 	FirstName string `sql:"first_name" json:"firstName"`
 	LastName  string `sql:"last_name" json:"lastName"`
 	Password  []byte `sql:"password" json:"-"`
+	Role      string `sql:"role" json:"role"`
 	CreatedAt string `sql:"created_at" json:"createdAt"`
 	UpdatedAt string `sql:"updated_at" json:"updatedAt"`
 }
@@ -18,6 +19,7 @@ type UserRegister struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 	Password  string `json:"password"`
+	Role      string `json:"role"`
 }
 
 type Session struct {

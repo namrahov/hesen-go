@@ -56,7 +56,6 @@ func (up *UserService) GetUserByUsername(ctx context.Context, username string) (
 
 func (up *UserService) AlreadyLoggedIn(r *http.Request) bool {
 	cookie, err := r.Cookie("session-id")
-	fmt.Println("kkkkk")
 
 	if err != nil {
 		return false
@@ -64,12 +63,8 @@ func (up *UserService) AlreadyLoggedIn(r *http.Request) bool {
 
 	userAddress, err := up.GetUserIfExist(r.Context(), cookie.Value)
 	if err == nil && userAddress != nil {
-		fmt.Println("ppppppppppppppp")
-
 		return true
 	} else {
-		fmt.Println("dddddd")
-
 		return false
 	}
 }
@@ -118,6 +113,7 @@ func (up *UserService) SaveUser(ctx context.Context, u *model.UserRegister) (*mo
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
 		Password:  ps,
+		Role:      "USER",
 	}
 
 	us, err := up.UserRepo.SaveUser(&user)

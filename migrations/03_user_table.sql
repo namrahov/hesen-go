@@ -8,6 +8,7 @@ create table if not exists userr
     first_name         varchar(32),
     last_name          varchar(32),
     password           bytea        not null,
+    role               varchar(16),
     created_at         timestamp    not null default now(),
     updated_at         timestamp    not null default current_timestamp
     );
