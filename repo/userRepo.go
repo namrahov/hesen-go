@@ -10,9 +10,20 @@ type IUserRepo interface {
 	SaveUser(u *model.User) (*model.User, error)
 	SaveSession(u *model.Session) error
 	GetUserByUsername(username string) (*model.User, error)
+	DeleteSessionBySessionId(sessionId string) error
 }
 
 type UserRepo struct {
+}
+
+func (r UserRepo) DeleteSessionBySessionId(sessionId string) error {
+	var session model.Session
+
+	_, err := Db.Model(&session).
+		Where("session_id = ?", sessionId).
+		Delete()
+
+	return err
 }
 
 func (r UserRepo) GetUserById(id string) (*model.User, error) {

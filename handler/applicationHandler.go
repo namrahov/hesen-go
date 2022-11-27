@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	mid "github.com/go-chi/chi/middleware"
 	"github.com/gorilla/mux"
 	"github.com/namrahov/hesen-go/config"
@@ -40,12 +41,43 @@ func ApplicationHandler(router *mux.Router) *mux.Router {
 	router.HandleFunc("/sign-up", h.signUp).Methods("POST")
 	router.HandleFunc("/bar", h.bar).Methods("GET")
 	router.HandleFunc("/logged-in", h.loggedIn).Methods("POST")
+	router.HandleFunc("/logout", h.logout).Methods("GET")
 	router.HandleFunc(config.RootPath+"/applications/{id}", h.getApplication).Methods("GET")
 	router.HandleFunc(config.RootPath+"/applications/{id}/change-status", h.changeStatus).Methods("PUT")
 	router.HandleFunc(config.RootPath+"/applications/", h.saveApplication).Methods("POST")
 	router.HandleFunc(config.RootPath+"/applications/get/filter-info", h.getFilterInfo).Methods("GET")
 
 	return router
+}
+
+func (h *applicationHandler) logout(w http.ResponseWriter, r *http.Request) {
+	if !h.UserService.AlreadyLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	fmt.Println("heseeeeeee")
+	c, _ := r.Cookie("session-id")
+
+	err := h.UserService.DeleteSessionBySessionId(r.Context(), c.Value)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	//remove cookie
+	c = &http.Cookie{
+		Name:   "session-id",
+		Value:  "",
+		MaxAge: -1,
+	}
+	http.SetCookie(w, c)
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	http.Redirect(w, r, "/logged-in", http.StatusSeeOther)
 }
 
 func (h *applicationHandler) loggedIn(w http.ResponseWriter, r *http.Request) {

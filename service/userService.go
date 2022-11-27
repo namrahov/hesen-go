@@ -17,10 +17,22 @@ type IUserService interface {
 	SaveSession(ctx context.Context, sessionId string, userId string) error
 	AlreadyLoggedIn(r *http.Request) bool
 	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
+	DeleteSessionBySessionId(ctx context.Context, sessionId string) error
 }
 
 type UserService struct {
 	UserRepo repo.IUserRepo
+}
+
+func (up *UserService) DeleteSessionBySessionId(ctx context.Context, sessionId string) error {
+	logger := ctx.Value(model.ContextLogger).(*log.Entry)
+	logger.Info("ActionLog.DeleteSessionBySessionId.start")
+
+	err := up.UserRepo.DeleteSessionBySessionId(sessionId)
+
+	logger.Info("ActionLog.DeleteSessionBySessionId.success")
+
+	return err
 }
 
 func (up *UserService) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
@@ -31,8 +43,6 @@ func (up *UserService) GetUserByUsername(ctx context.Context, username string) (
 	if u == nil {
 		return nil, nil
 	}
-
-	fmt.Println("uuuuuuuu", u)
 
 	if err != nil {
 		logger.Errorf("ActionLog.GetUserByUsername.error: cannot get user by username %v", username)
@@ -46,16 +56,20 @@ func (up *UserService) GetUserByUsername(ctx context.Context, username string) (
 
 func (up *UserService) AlreadyLoggedIn(r *http.Request) bool {
 	cookie, err := r.Cookie("session-id")
+	fmt.Println("kkkkk")
 
 	if err != nil {
-		fmt.Println("aaaaaaaaaaaaaaaaaaaaaaaa")
 		return false
 	}
 
 	userAddress, err := up.GetUserIfExist(r.Context(), cookie.Value)
 	if err == nil && userAddress != nil {
+		fmt.Println("ppppppppppppppp")
+
 		return true
 	} else {
+		fmt.Println("dddddd")
+
 		return false
 	}
 }
